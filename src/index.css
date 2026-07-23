@@ -1,0 +1,96 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Design tokens. Palette + fonts mirror the approved reference (Fundscope):
+   a GitHub-dark scheme with a #3fb950 green accent, Inter / Plus Jakarta Sans
+   / JetBrains Mono. Dark is the default; [data-theme="light"] is the opt-in.
+   ────────────────────────────────────────────────────────────────────────── */
+:root {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --bg: #0b0b0f; /* near-black page */
+  --surface: #13131a; /* cards */
+  --surface-2: #1a1a22; /* inset / raised */
+  --surface-hover: #20202a;
+  --border: #22222b;
+  --border-strong: #2a2a35;
+
+  --text: #ffffff;
+  --text-muted: #9ca3af;
+  --text-faint: #6b7280;
+
+  --accent: #3fb950; /* green */
+  --accent-strong: #56d364;
+  --accent-contrast: #08160c; /* text on solid-green fills */
+  --accent-soft: rgba(63, 185, 80, 0.14);
+  --accent-text: #3fb950;
+
+  --info: #2f81f7; /* verified badge / secondary accent */
+
+  --danger: #f85149;
+  --danger-soft: rgba(248, 81, 73, 0.14);
+
+  --shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.02);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  --radius: 14px;
+  --radius-sm: 9px;
+}
+
+[data-theme="light"] {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --surface-hover: #eaecef;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+
+  --text: #0b0b0f;
+  --text-muted: #5b616b;
+  --text-faint: #9ca3af;
+
+  --accent: #2da44e;
+  --accent-strong: #2c974b;
+  --accent-contrast: #ffffff;
+  --accent-soft: rgba(45, 164, 78, 0.12);
+  --accent-text: #1f7a3a;
+
+  --info: #2f6fed;
+
+  --danger: #cf222e;
+  --danger-soft: rgba(207, 34, 46, 0.1);
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-md: 0 1px 3px rgba(16, 24, 40, 0.1), 0 8px 24px rgba(16, 24, 40, 0.06);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  font-family: var(--font-sans);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}

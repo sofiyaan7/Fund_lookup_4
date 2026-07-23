@@ -1,0 +1,933 @@
+.dossier {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.dossier--msg {
+  padding: 40px 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Sections — each is its own card in the page stack */
+.d-section {
+  padding: 20px 22px;
+}
+
+/* Active funds table */
+.d-tbl-wrap {
+  overflow-x: auto;
+}
+
+.d-tbl {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.d-tbl th {
+  text-align: left;
+  font-weight: 400;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-faint);
+  padding: 8px 12px 10px 0;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.d-tbl td {
+  padding: 12px 12px 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.d-tbl tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.d-tbl-row {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.d-tbl-row:hover {
+  background: var(--surface-hover);
+}
+
+.d-tbl-name {
+  color: var(--text);
+  font-size: 13.5px;
+}
+
+.d-tbl-row:hover .d-tbl-name {
+  color: var(--accent-text);
+}
+
+.d-tbl-muted {
+  color: var(--text-muted);
+}
+
+.d-tbl-num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+th.d-tbl-num {
+  color: var(--text-faint);
+  font-family: var(--font-sans);
+}
+
+.d-tbl-open {
+  text-align: right;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.d-tbl-row:hover .d-tbl-open {
+  color: var(--accent-text);
+}
+
+.d-pill--lone {
+  margin-left: 0;
+}
+
+/* "AUM in tenure" value (start → end), from the fund's disclosed AUM history */
+.d-prev-aum {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.d-prev-aum-arrow.is-up {
+  color: var(--accent-text);
+}
+
+.d-prev-aum-arrow.is-down {
+  color: var(--danger);
+}
+
+/* Marker on a user-edited AUM figure */
+.d-aum-edit-dot {
+  margin-left: 5px;
+  font-size: 10px;
+  color: var(--accent-text);
+  cursor: help;
+}
+
+.d-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.d-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--accent-text);
+}
+
+.d-note {
+  font-size: 9.5px;
+  color: var(--text-faint);
+}
+
+
+/* Sort & filter icon + menu */
+.d-menu-wrap {
+  position: relative;
+}
+
+.d-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.d-icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.d-icon-btn:hover,
+.d-icon-btn.is-on {
+  color: var(--accent-text);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.d-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  min-width: 170px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.d-menu-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-faint);
+  padding: 8px 10px 4px;
+}
+
+.d-menu-item {
+  display: block;
+  text-align: left;
+  width: 100%;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text);
+  padding: 7px 10px;
+  border-radius: 6px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.d-menu-item:hover {
+  background: var(--surface-hover);
+}
+
+.d-menu-item.is-on {
+  color: var(--accent-text);
+  font-weight: 600;
+  background: var(--accent-soft);
+}
+
+.d-menu-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.d-empty {
+  padding: 28px 4px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+/* Career milestones (derived) */
+.d-miles {
+  display: flex;
+  flex-direction: column;
+  margin: 2px 0 22px;
+}
+
+.d-mile {
+  display: flex;
+  gap: 14px;
+}
+
+.d-mile-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 12px;
+  flex-shrink: 0;
+}
+
+.d-mile-rail::after {
+  content: "";
+  flex: 1;
+  width: 1px;
+  background: var(--border);
+}
+
+.d-mile:last-child .d-mile-rail::after {
+  display: none;
+}
+
+.d-mile-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 4px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.d-mile-body {
+  padding-bottom: 16px;
+}
+
+.d-mile-year {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-text);
+  margin-bottom: 2px;
+}
+
+.d-mile-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.d-mile-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 12px;
+  margin-top: 6px;
+}
+
+.d-mile-cat {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.d-mile-period {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+/* "View details" action button in the Active funds table */
+.d-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.d-tbl-row:hover .d-view-btn {
+  color: var(--accent-text);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.d-view-arrow {
+  font-size: 10px;
+}
+
+.d-legend,
+.d-stack-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Clickable rows in the timeline / duration views */
+.d-leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+
+.d-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+/* Gantt timeline */
+.d-gantt {
+  position: relative;
+}
+
+.d-grid {
+  position: absolute;
+  left: 190px;
+  right: 0;
+  top: 0;
+  bottom: 18px;
+  pointer-events: none;
+}
+
+.d-grid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.d-grid-year {
+  position: absolute;
+  bottom: -16px;
+  left: 2px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-faint);
+}
+
+.d-row {
+  display: flex;
+  align-items: center;
+  height: 24px;
+}
+
+.d-row-label {
+  width: 190px;
+  flex-shrink: 0;
+  padding-right: 12px;
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.d-row-track {
+  position: relative;
+  flex: 1;
+  height: 100%;
+}
+
+.d-tenure {
+  position: absolute;
+  top: 5px;
+  height: 13px;
+  border-radius: 3px;
+  min-width: 3px;
+}
+
+.d-tenure.is-active {
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+.d-row + .d-row {
+  margin-top: 1px;
+}
+
+.d-gantt {
+  padding-bottom: 18px;
+}
+
+/* Reusable bar */
+.d-bar-track {
+  position: relative;
+  height: 22px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.d-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 6px 0 0 6px;
+}
+
+.d-bar-text {
+  position: relative;
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text);
+}
+
+/* AUM list */
+.d-aum-row {
+  display: grid;
+  grid-template-columns: 1fr 150px;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.d-aum-name,
+.d-cat-name {
+  font-size: 12.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Clickable scheme name (portfolio header, category fund list) */
+.d-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--text);
+  text-align: left;
+  transition: color 0.15s;
+}
+
+.d-link span:first-child {
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s;
+}
+
+.d-link:hover {
+  color: var(--accent-text);
+}
+
+.d-link:hover span:first-child {
+  text-decoration-color: var(--accent);
+}
+
+.d-link-arrow {
+  font-size: 11px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+  transition: color 0.15s, transform 0.15s;
+}
+
+.d-link:hover .d-link-arrow {
+  color: var(--accent-text);
+  transform: translate(1px, -1px);
+}
+
+/* Expandable category rows */
+.d-cat {
+  border-bottom: 1px solid var(--border);
+}
+
+.d-cat:last-child {
+  border-bottom: none;
+}
+
+.d-cat-row {
+  list-style: none;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 16px 1fr 150px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.d-cat-row::-webkit-details-marker {
+  display: none;
+}
+
+.d-cat-caret {
+  color: var(--text-faint);
+  font-size: 15px;
+  transition: transform 0.15s;
+  text-align: center;
+}
+
+.d-cat[open] .d-cat-caret {
+  transform: rotate(90deg);
+}
+
+.d-cat-row:hover .d-cat-name {
+  color: var(--accent-text);
+}
+
+.d-cat-funds {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 14px 28px;
+}
+
+.d-cat-fund {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.d-pill {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 8px;
+}
+
+.d-cat-active {
+  color: var(--accent-text);
+}
+
+.d-foot {
+  margin-top: 12px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--text-faint);
+}
+
+.d-foot--lead {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+/* Portfolio composition */
+.d-port {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  background: var(--surface-2);
+}
+
+.d-port-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.d-port-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.d-port-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.d-port-block {
+  margin-bottom: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.d-port-label {
+  display: block;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+
+.d-stack {
+  display: flex;
+  height: 16px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--surface-hover);
+  margin-bottom: 8px;
+}
+
+.d-stack-seg {
+  height: 100%;
+}
+
+.d-stack-rest {
+  background: var(--surface-hover);
+}
+
+.d-port-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.d-mini {
+  display: grid;
+  grid-template-columns: 1fr 70px 34px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.d-mini-name {
+  font-size: 11.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.d-mini-track {
+  height: 6px;
+  background: var(--surface-hover);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.d-mini-fill {
+  height: 100%;
+  background: var(--accent);
+  opacity: 0.7;
+  border-radius: 3px;
+}
+
+.d-mini-val {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.d-hold {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.d-hold-name {
+  font-size: 11.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.d-hold-val {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Performance links */
+.d-perf-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.d-perf-name {
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.d-perf-links {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.d-perf-links a {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--border-strong);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.d-perf-links a:hover {
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+
+.d-source {
+  padding: 14px 22px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--text-faint);
+}
+
+/* Collapsed performance disclosure */
+.d-perf-details summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.15s;
+}
+
+.d-perf-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.d-perf-details summary::before {
+  content: "›";
+  display: inline-block;
+  font-size: 14px;
+  transition: transform 0.15s;
+}
+
+.d-perf-details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.d-perf-details summary:hover {
+  color: var(--accent-text);
+}
+
+.d-perf-details .d-perf {
+  margin-top: 14px;
+}
+
+@media (max-width: 720px) {
+  .d-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .d-port-cols {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .d-row-label {
+    width: 120px;
+  }
+  .d-grid {
+    left: 120px;
+  }
+  .d-aum-row {
+    grid-template-columns: 1fr 110px;
+  }
+  .d-cat-row {
+    grid-template-columns: 16px 1fr 110px;
+  }
+}
+
+/* ── live data: return & benchmark badges, TER cell, bench selector ────── */
+
+.d-ret {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.d-ret--pos {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  border: 1px solid rgba(63, 185, 80, 0.35);
+}
+
+.d-ret--neg {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border: 1px solid rgba(248, 81, 73, 0.35);
+}
+
+.d-ret--wait,
+.d-ret--na {
+  color: var(--text-faint);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.d-ret-arrow {
+  font-size: 10px;
+}
+
+.d-ret-pa {
+  font-size: 9px;
+  opacity: 0.75;
+}
+
+.d-live-dim {
+  color: var(--text-faint);
+}
+
+/* Plain, icon-free return value for a labelled column (Previous funds'
+   "Manager return" / "Nifty 50 return") — no pill background, no arrow. */
+.d-plain-ret {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.d-plain-ret.is-pos {
+  color: var(--accent-text);
+}
+
+.d-plain-ret.is-neg {
+  color: var(--danger);
+}
+
+/* Official Primary-benchmark cell: index name + its return underneath, small */
+.d-bench-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.d-bench-cell-name {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.d-bench-cell-ret {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.d-bench-cell-ret.is-pos {
+  color: var(--accent-text);
+}
+
+.d-bench-cell-ret.is-neg {
+  color: var(--danger);
+}
+

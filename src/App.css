@@ -1,0 +1,202 @@
+/* App shell — sidebar + main column */
+.shell {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  min-height: 100vh;
+  transition: grid-template-columns 0.2s;
+}
+
+.main {
+  min-width: 0;
+  padding: 22px 28px 64px;
+}
+
+.main-inner {
+  max-width: 1020px;
+  margin: 0 auto;
+  transition: max-width 0.2s;
+}
+
+/* Collapsed sidebar: icon-only rail, so wide tables (e.g. the manager
+   dossier's Previous funds row) get the extra room to lay out in one line. */
+:root[data-sidebar="collapsed"] .shell {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+:root[data-sidebar="collapsed"] .main-inner {
+  max-width: 1360px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.topbar .search-wrap {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+/* Shared card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* breadcrumb trail */
+.trail {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-bottom: 18px;
+  font-size: 12.5px;
+}
+
+.trail-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trail-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: opacity 0.15s;
+}
+
+.trail-link:hover {
+  opacity: 0.7;
+}
+
+.trail-sep {
+  color: var(--text-faint);
+}
+
+.trail-current {
+  color: var(--text-muted);
+}
+
+/* Shared segmented control (filter / chart-type pickers) */
+.seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.seg-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.seg-btn:hover {
+  color: var(--text);
+}
+
+.seg-on {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.seg-on:hover {
+  color: var(--accent-contrast);
+}
+
+.seg-sm .seg-btn {
+  padding: 4px 11px;
+  font-size: 11.5px;
+}
+
+/* Dashboard empty state */
+.empty-state {
+  text-align: center;
+  padding: 64px 20px 24px;
+}
+
+.empty-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  color: var(--text);
+  max-width: 540px;
+  margin: 0 auto 10px;
+  line-height: 1.3;
+}
+
+.empty-sub {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  margin-bottom: 28px;
+}
+
+.empty-examples {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.empty-examples-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text-faint);
+  margin-right: 2px;
+}
+
+.example-chip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.example-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 860px) {
+  .shell {
+    /* minmax(0, …) lets the column shrink below its content's min width so a
+       wide child (sidebar nav row, tables) scrolls instead of overflowing. */
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .main {
+    padding: 18px 16px 48px;
+  }
+}

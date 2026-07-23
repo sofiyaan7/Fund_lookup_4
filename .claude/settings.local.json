@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Read(//tmp/**)",
+      "Bash(npm install *)",
+      "Bash(fuser 5173/tcp)"
+    ]
+  }
+}

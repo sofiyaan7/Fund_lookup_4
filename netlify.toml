@@ -1,0 +1,21 @@
+# Netlify build configuration.
+# Used when the site is built by Netlify (Git-connected deploys or
+# `netlify deploy --build`). It does NOT apply to manual drag-and-drop
+# "Netlify Drop" uploads — for those, drop the built `dist/` folder.
+
+[build]
+  # Netlify installs dependencies and runs this in the cloud.
+  command = "npm run build"
+  # The folder Vite outputs static files to — this is what gets served.
+  publish = "dist"
+
+[build.environment]
+  # Pin Node so cloud builds match local.
+  NODE_VERSION = "20"
+
+# SPA fallback: serve index.html for any path that isn't a real file.
+# Harmless now (no client-side routes) and future-proofs adding a router.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

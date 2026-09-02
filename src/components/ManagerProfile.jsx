@@ -102,6 +102,8 @@ function itemCount(value) {
   return value.split(";").filter((s) => s.trim()).length;
 }
 
+const UNCLASSIFIED = "Other / unclassified";
+
 function Stat({ icon, value, label, small }) {
   return (
     <div className="card mp-stat">
@@ -118,7 +120,7 @@ export default function ManagerProfile({ name, records, onOpenScheme, children }
 
     const schemes = [...new Set(records.map((r) => r.s))];
     const activeSchemes = new Set(
-      records.filter((r) => isActive(r.td)).map((r) => r.s)
+      records.filter((r) => isActive(r)).map((r) => r.s)
     );
 
     let earliest = null;
@@ -141,7 +143,7 @@ export default function ManagerProfile({ name, records, onOpenScheme, children }
     const byAmc = {};
     records.forEach((r) => {
       const amc = inferAMC(r.s);
-      const key = amc ? amc.name : "Other / unclassified";
+      const key = amc ? amc.name : UNCLASSIFIED;
       (byAmc[key] ||= []).push(r);
     });
 
@@ -158,8 +160,19 @@ export default function ManagerProfile({ name, records, onOpenScheme, children }
           if (sameSpell) {
             if (r.td > cur.last) cur.last = r.td;
             cur.schemes.add(r.s);
+            // A spell is current if ANY tenure inside it is still open. That is
+            // a per-record question (each fund has its own last reported month),
+            // so it cannot be re-derived from the spell's end date alone.
+            cur.active = cur.active || isActive(r);
           } else {
-            spells.push({ name: amcName, first: r.fd, last: r.td, schemes: new Set([r.s]) });
+            spells.push({
+              name: amcName,
+              first: r.fd,
+              last: r.td,
+              schemes: new Set([r.s]),
+              active: isActive(r),
+              classified: amcName !== UNCLASSIFIED,
+            });
           }
         });
     });
@@ -169,11 +182,12 @@ export default function ManagerProfile({ name, records, onOpenScheme, children }
         ...m,
         schemes: [...m.schemes].sort(),
         count: m.schemes.size,
-        active: isActive(m.last),
       }))
       .sort((a, b) => b.last.localeCompare(a.last) || b.first.localeCompare(a.first));
 
-    const currentAMCs = [...new Set(stints.filter((s) => s.active).map((s) => s.name))];
+    const currentAMCs = [
+      ...new Set(stints.filter((s) => s.active && s.classified).map((s) => s.name)),
+    ];
 
     return {
       amcs: uniqueAMCs(schemes),
@@ -200,8 +214,16 @@ export default function ManagerProfile({ name, records, onOpenScheme, children }
   const roleField = profile?.fields.find((f) => f.label === "Current role");
   const sideFields = profile ? profile.fields : [];
 
+  // Prefer a current, identifiable fund house; then the most recent
+  // identifiable one; fall back to the unclassified bucket only if the manager
+  // genuinely has nothing else. This previously took stints[0] unconditionally,
+  // so one unrecognised scheme name could make the headline stat read "Other /
+  // unclassified" while the About text right below correctly named the AMC.
+  const lastClassified = derived.stints.find((s) => s.classified);
   const currentAMCLabel = derived.currentAMCs.length
     ? derived.currentAMCs.map(shortAMC).join(", ")
+    : lastClassified
+    ? shortAMC(lastClassified.name)
     : derived.stints[0]
     ? shortAMC(derived.stints[0].name)
     : "—";

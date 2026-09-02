@@ -3,8 +3,14 @@ import "./Sidebar.css";
 
 // Expanded is the default. Persisted like the theme, and applied as a
 // data attribute on <html> so App.css can widen the main column to match.
+// localStorage throws outright (not just returns null) when a browser blocks
+// site data, so an unguarded read here took the entire app down with it.
 function initialCollapsed() {
-  return localStorage.getItem("sidebar.collapsed") === "true";
+  try {
+    return localStorage.getItem("sidebar.collapsed") === "true";
+  } catch {
+    return false;
+  }
 }
 
 const NAV = [
@@ -57,7 +63,11 @@ export default function Sidebar({ current, onNav }) {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-sidebar", collapsed ? "collapsed" : "expanded");
-    localStorage.setItem("sidebar.collapsed", String(collapsed));
+    try {
+      localStorage.setItem("sidebar.collapsed", String(collapsed));
+    } catch {
+      /* preference just won't persist */
+    }
   }, [collapsed]);
 
   return (

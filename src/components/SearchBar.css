@@ -128,3 +128,10 @@
   color: var(--text-faint);
   text-align: center;
 }
+
+/* Keyboard-highlighted row in the results list. */
+.dropdown-item--on,
+.dropdown-item:focus-visible {
+  background: var(--surface-3, rgba(127, 127, 127, 0.14));
+  outline: none;
+}

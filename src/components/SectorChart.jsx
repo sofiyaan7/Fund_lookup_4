@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import "./SectorChart.css";
 
-export const SLICE_COLORS = [
+const SLICE_COLORS = [
   "#3fb950",
   "#2f81f7",
   "#d29922",
@@ -50,6 +50,20 @@ export default function SectorChart({ sectors = [], maxSlices = 9 }) {
 
   const total = slices.reduce((s, x) => s + x.v, 0) || 1;
   let acc = 0;
+
+  // With no sector rows the "remainder" logic would render a single grey
+  // full-circle labelled "Other / cash / debt", which reads as a real 100%
+  // allocation rather than as missing data.
+  if (!sectors.length) {
+    return (
+      <div className="sc">
+        <div className="sc-head">
+          <span className="sc-label">Sector analysis</span>
+        </div>
+        <div className="sc-empty">No sector breakdown disclosed for this scheme.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="sc">

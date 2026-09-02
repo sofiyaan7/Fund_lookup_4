@@ -4,8 +4,11 @@ import "./ThemeToggle.css";
 // Dark is the default, matching the approved reference. We only switch to light
 // if the user has explicitly chosen it before — OS preference does not override.
 function initialTheme() {
-  const saved = localStorage.getItem("theme");
-  return saved === "light" ? "light" : "dark";
+  try {
+    return localStorage.getItem("theme") === "light" ? "light" : "dark";
+  } catch {
+    return "dark"; // storage blocked — fall back to the default theme
+  }
 }
 
 export default function ThemeToggle() {
@@ -13,7 +16,11 @@ export default function ThemeToggle() {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
+    try {
+      localStorage.setItem("theme", theme);
+    } catch {
+      /* preference just won't persist */
+    }
   }, [theme]);
 
   const isDark = theme === "dark";

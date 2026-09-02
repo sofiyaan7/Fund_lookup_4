@@ -103,3 +103,9 @@
     grid-template-columns: minmax(0, 1fr) 100px 44px;
   }
 }
+
+.sc-empty {
+  padding: 22px 4px;
+  font-size: 13px;
+  color: var(--text-faint);
+}

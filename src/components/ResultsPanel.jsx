@@ -14,14 +14,18 @@ function ActiveBadge() {
   return <span className="active-badge">active</span>;
 }
 
-function TenureRow({ from, to }) {
+// `record` is the tenure row itself — isActive needs the fund it belongs to,
+// not just the end date, since "open" means "runs to this fund's last
+// observation on record".
+function TenureRow({ record }) {
+  const open = isActive(record);
   return (
     <div className="tenure-row">
-      <Tag label="From" value={formatDate(from)} />
-      <span className="arrow">{"→"}</span>
-      <Tag label="To" value={formatDate(to)} />
-      <span className="tenure-val">{calcTenure(from, to)}</span>
-      {isActive(to) && <ActiveBadge />}
+      <Tag label="From" value={formatDate(record.fd)} />
+      <span className="arrow">{"\u2192"}</span>
+      <Tag label="To" value={open ? "Present" : formatDate(record.td)} />
+      <span className="tenure-val">{calcTenure(record.fd, record.td)}</span>
+      {open && <ActiveBadge />}
     </div>
   );
 }
@@ -93,7 +97,7 @@ export default function ResultsPanel({
 
     const totalCount = groups.length;
     if (filter === "active") {
-      groups = groups.filter((g) => g.entries.some((e) => isActive(e.td)));
+      groups = groups.filter((g) => g.entries.some((e) => isActive(e)));
     }
 
     return (
@@ -119,7 +123,7 @@ export default function ResultsPanel({
             <div className="results-empty">No active funds for this manager.</div>
           )}
           {groups.map((group, i) => {
-            const active = group.entries.some((e) => isActive(e.td));
+            const active = group.entries.some((e) => isActive(e));
             const highlighted = highlight === group.scheme;
             return (
               <div
@@ -144,7 +148,7 @@ export default function ResultsPanel({
                 <div className="meta-row">
                   <Tag label="Inception" value={formatDate(group.inception)} />
                   {group.entries.map((e, j) => (
-                    <TenureRow key={j} from={e.fd} to={e.td} />
+                    <TenureRow key={j} record={e} />
                   ))}
                 </div>
               </div>
@@ -159,12 +163,12 @@ export default function ResultsPanel({
   let sorted = [...results].sort((a, b) => new Date(b.fd) - new Date(a.fd));
   const totalCount = sorted.length;
   if (filter === "active") {
-    sorted = sorted.filter((r) => isActive(r.td));
+    sorted = sorted.filter((r) => isActive(r));
   }
 
   const inception = results[0]?.i;
   const currentManagers = [
-    ...new Set(results.filter((r) => isActive(r.td)).map((r) => r.f)),
+    ...new Set(results.filter((r) => isActive(r)).map((r) => r.f)),
   ];
 
   return (
@@ -207,11 +211,11 @@ export default function ResultsPanel({
                 >
                   {r.f}
                 </LinkName>
-                {currentManagers.includes(r.f) && isActive(r.td) && (
+                {currentManagers.includes(r.f) && isActive(r) && (
                   <span className="current-tag">current</span>
                 )}
               </div>
-              <TenureRow from={r.fd} to={r.td} />
+              <TenureRow record={r} />
             </div>
           );
         })}

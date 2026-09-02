@@ -12,6 +12,20 @@
 let cache = null;
 let pending = null;
 
+// The generators occasionally carry a spreadsheet header row through as if it
+// were a fund — composition.json has an entry keyed literally "Scheme Name".
+// Nothing links to it, but it inflates counts and would render as a fund if
+// anything ever iterated the map.
+const HEADER_KEYS = new Set(["scheme name", "scheme", "name", "fund name", "nan", ""]);
+
+function dropHeaderRows(funds) {
+  const out = {};
+  Object.entries(funds || {}).forEach(([k, v]) => {
+    if (!HEADER_KEYS.has(String(k).trim().toLowerCase())) out[k] = v;
+  });
+  return out;
+}
+
 export function loadDossier() {
   if (cache) return Promise.resolve(cache);
   if (pending) return pending;
@@ -19,8 +33,9 @@ export function loadDossier() {
   pending = Promise.all([
     fetch(base + "fundMeta.json").then((r) => r.json()),
     fetch(base + "composition.json").then((r) => r.json()),
-    // Month-end AUM history for the 14-fund workbook. Optional: if it is missing
-    // the dossier still renders (funds simply show no tenure-AUM / flow chart).
+    // Month-end AUM history (covers ~1,075 of the 1,095 schemes). Optional: if
+    // it is missing the dossier still renders (funds simply show no
+    // tenure-AUM / flow chart).
     fetch(base + "aumHistory.json")
       .then((r) => (r.ok ? r.json() : { funds: {} }))
       .catch(() => ({ funds: {} })),
@@ -32,9 +47,9 @@ export function loadDossier() {
   ])
     .then(([meta, comp, aum, benchmarkPrimary]) => {
       cache = {
-        meta: meta.funds || {},
-        composition: comp.funds || {},
-        aumHistory: aum.funds || {},
+        meta: dropHeaderRows(meta.funds),
+        composition: dropHeaderRows(comp.funds),
+        aumHistory: dropHeaderRows(aum.funds),
         benchmarkPrimary: benchmarkPrimary || {},
         asOf: meta._meta?.asOf || "2026-05-31",
         note: meta._meta?.note || "",

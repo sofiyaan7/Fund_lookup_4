@@ -103,3 +103,34 @@
   font-size: 13px;
   color: var(--text-faint);
 }
+
+/* Scope banner shown when the Funds index is narrowed to one fund house. */
+.idx-scope {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px 0;
+}
+.idx-scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-2, transparent);
+  font-size: 12px;
+  color: var(--text);
+}
+.idx-scope-clear {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 999px;
+}
+.idx-scope-clear:hover { color: var(--text); }
+.idx-scope-count { font-size: 12px; color: var(--text-faint); }

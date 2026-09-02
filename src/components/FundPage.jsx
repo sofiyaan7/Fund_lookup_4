@@ -228,7 +228,7 @@ function fmtCrExact(n) {
 // ISIN-verified AMFI history as the NAV chart; months with no NAV coverage are
 // carried flat and show no flow bar — flows are never fabricated. Hovering the
 // chart shows that month's actual, counterfactual and net-flow figures.
-function AumFlowChart({ series, nav }) {
+function AumFlowChart({ series, nav, navFail }) {
   const [range, setRange] = useState("3y");
   const [hover, setHover] = useState(null); // visible-index under the cursor
 
@@ -467,6 +467,8 @@ function AumFlowChart({ series, nav }) {
             ? `${view.netFlow >= 0 ? "+" : "−"}${formatCrore(Math.abs(view.netFlow))} over range`
             : nav
             ? "no NAV overlap in range"
+            : navFail
+            ? "no ISIN-verified NAV for this scheme"
             : "loading NAV…"}
         </span>
       </div>
@@ -670,12 +672,32 @@ export default function FundPage({ name, records, onOpenManager, onOpenCompany }
 
   const derived = useMemo(() => {
     if (!records || !records.length) return null;
-    const current = [...new Set(records.filter((r) => isActive(r.td)).map((r) => r.f))];
+    const current = [...new Set(records.filter((r) => isActive(r)).map((r) => r.f))];
     const managers = [...new Set(records.map((r) => r.f))];
-    return { inception: records[0]?.i, managers: managers.length, current, amc: inferAMC(name) };
+    const inception = records[0]?.i;
+    // 64 records in the source dump start a tenure BEFORE the fund's recorded
+    // inception (and 37 end before it) — impossible, and previously rendered
+    // without comment. Surface the discrepancy rather than picking a winner:
+    // we don't know which of the two dates is the wrong one.
+    const earliestTenure = records.reduce(
+      (min, r) => (!min || r.fd < min ? r.fd : min),
+      null
+    );
+    const inceptionDisputed = !!(inception && earliestTenure && earliestTenure < inception);
+    return {
+      inception,
+      earliestTenure,
+      inceptionDisputed,
+      managers: managers.length,
+      current,
+      amc: inferAMC(name),
+    };
   }, [records, name]);
 
   const snap = useMemo(() => (nav ? snapshotReturns(nav) : null), [nav]);
+  // Three distinct states, never conflated: resolved (snap), still resolving
+  // (pending), or resolved-to-nothing (navFail).
+  const pending = !snap && !navFail;
 
   if (!derived) return null;
 
@@ -709,7 +731,23 @@ export default function FundPage({ name, records, onOpenManager, onOpenCompany }
               </button>
             )}
             {meta && <AumChip scheme={name} baseAum={meta.aum ?? null} />}
-            <span className="mp-chip">Inception {formatDate(derived.inception)}</span>
+            <span
+              className={`mp-chip ${derived.inceptionDisputed ? "mp-chip--warn" : ""}`}
+              title={
+                derived.inceptionDisputed
+                  ? `Source data conflict: the earliest manager tenure on record starts ${formatDate(
+                      derived.earliestTenure
+                    )}, before this recorded inception date. One of the two is wrong in the source dump.`
+                  : undefined
+              }
+            >
+              Inception {formatDate(derived.inception)}
+              {derived.inceptionDisputed && (
+                <span className="mp-chip-flag" aria-label="source data conflict">
+                  ?
+                </span>
+              )}
+            </span>
             {comp && <span className="mp-chip">{comp.n} holdings</span>}
             <span className="mp-chip">
               {derived.managers} manager{derived.managers !== 1 ? "s" : ""} on record
@@ -736,17 +774,42 @@ export default function FundPage({ name, records, onOpenManager, onOpenCompany }
       <div className="fpg-stats">
         <SnapStat
           label="Latest NAV"
-          value={snap ? `₹${snap.latest.nav.toFixed(2)}` : navFail ? "—" : "…"}
-          sub={snap ? fmtNavDate(snap.latest.t) : navFail ? "no AMFI match" : "loading"}
+          value={snap ? `₹${snap.latest.nav.toFixed(2)}` : pending ? "…" : "—"}
+          sub={snap ? fmtNavDate(snap.latest.t) : pending ? "loading" : "no AMFI match"}
         />
-        <SnapStat label="1Y return" value={snap ? retVal(snap.r1) : "…"} tone={snap ? retTone(snap.r1) : ""} sub={snap?.r1 ? "absolute → CAGR ≥1y" : ""} />
-        <SnapStat label="3Y CAGR" value={snap ? retVal(snap.r3) : "…"} tone={snap ? retTone(snap.r3) : ""} sub={snap?.r3 ? "p.a." : ""} />
-        <SnapStat label="5Y CAGR" value={snap ? retVal(snap.r5) : "…"} tone={snap ? retTone(snap.r5) : ""} sub={snap?.r5 ? "p.a." : ""} />
+        {/* `pending` is the only state that may show a spinner. When the
+            scheme has no ISIN-verified AMFI match these tiles used to stay on
+            "…" forever, so ~22% of fund pages advertised a load that was
+            never going to finish. */}
+        <SnapStat
+          label="1Y return"
+          value={snap ? retVal(snap.r1) : pending ? "…" : "—"}
+          tone={snap ? retTone(snap.r1) : ""}
+          sub={snap?.r1 ? "absolute → CAGR ≥1y" : navFail ? "no AMFI match" : ""}
+        />
+        <SnapStat
+          label="3Y CAGR"
+          value={snap ? retVal(snap.r3) : pending ? "…" : "—"}
+          tone={snap ? retTone(snap.r3) : ""}
+          sub={snap?.r3 ? "p.a." : navFail ? "no AMFI match" : ""}
+        />
+        <SnapStat
+          label="5Y CAGR"
+          value={snap ? retVal(snap.r5) : pending ? "…" : "—"}
+          tone={snap ? retTone(snap.r5) : ""}
+          sub={snap?.r5 ? "p.a." : navFail ? "no AMFI match" : ""}
+        />
         <SnapStat
           label="Since"
-          value={snap ? retVal(snap.si) : "…"}
+          value={snap ? retVal(snap.si) : pending ? "…" : "—"}
           tone={snap ? retTone(snap.si) : ""}
-          sub={snap?.si ? `${fmtNavDate(snap.si.sinceT)} · p.a.` : ""}
+          sub={
+            snap?.si
+              ? `${fmtNavDate(snap.si.sinceT)} · p.a.`
+              : navFail
+              ? "no AMFI match"
+              : ""
+          }
         />
       </div>
 
@@ -775,7 +838,7 @@ export default function FundPage({ name, records, onOpenManager, onOpenCompany }
               Month-end AUM · {aumSeries.points.length} months · est. net flow from AUM &amp; NAV
             </span>
           </div>
-          <AumFlowChart series={aumSeries} nav={nav} />
+          <AumFlowChart series={aumSeries} nav={nav} navFail={navFail} />
           <p className="d-foot">
             AUM is the fund’s disclosed month-end size (₹ crore) from the data dump.
             <strong> Estimated net flow</strong> = actual AUM − expected AUM, where expected

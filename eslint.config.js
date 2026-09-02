@@ -29,6 +29,10 @@ export default [
       ...react.configs['jsx-runtime'].rules,
       ...reactHooks.configs.recommended.rules,
       'react/jsx-no-target-blank': 'off',
+      // This is a plain-JS codebase with no runtime prop validation anywhere;
+      // the rule produced 118 errors across every component and drowned out
+      // every real finding. Off deliberately, not by accident.
+      'react/prop-types': 'off',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },

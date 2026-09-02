@@ -1,7 +1,10 @@
 // Deep-link support: lets another site link straight into a fund's page,
 // e.g. https://<site>/fund/<Scheme%20Name>, and keeps this app's URL in
 // sync with the current selection so links can be copied back out.
-import FUND_DATA from "./data/funds";
+//
+// Route parsing takes the scheme/manager name lists as an argument rather than
+// importing the dataset, because the dataset is fetched at runtime (see
+// data/funds.js) and isn't available at module-load time.
 
 const NAV_KEYS = ["managers", "funds", "companies"];
 
@@ -23,14 +26,18 @@ export function navHref(nav) {
   return nav === "dashboard" ? "/" : `/${nav}`;
 }
 
+// The path the app should show for a given view — the single place that maps
+// app state to a URL, so the address bar and the history stack agree.
+export function hrefFor({ nav, mode, selected }) {
+  if (!selected) return navHref(nav);
+  return mode === "manager" ? managerHref(selected) : schemeHref(selected);
+}
+
 // Reads window.location.pathname (+ optional ?fund=/?manager= query params
 // as a fallback for hosts that can't build path segments) and resolves it
 // to either a { selected, mode } pair or a { nav } pair. Returns null for
 // an unrecognized path (caller should fall back to the empty dashboard).
-export function parseLocation(pathname, search) {
-  const schemes = [...new Set(FUND_DATA.map((r) => r.s))];
-  const managers = [...new Set(FUND_DATA.map((r) => r.f))];
-
+export function parseLocation(pathname, search, { schemes = [], managers = [] } = {}) {
   const params = new URLSearchParams(search || "");
   const qFund = params.get("fund") || params.get("scheme");
   const qManager = params.get("manager") || params.get("fm");

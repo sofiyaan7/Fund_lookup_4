@@ -29,7 +29,7 @@ function fmtMonths(m) {
 
 
 // Month-end AUM at the start and end of a manager's tenure, from the fund's
-// disclosed AUM history (14-fund workbook). null when the fund has no
+// disclosed AUM history. null when the fund has no
 // history in that source. This is historical, sourced AUM — never the
 // user-editable current figure.
 function tenureAumWindow(points, fromISO, toISO) {
@@ -364,13 +364,13 @@ export default function ManagerDossier({ records, onOpenScheme, onQuickView }) {
         // Current AUM, honouring any user override over the sourced figure.
         aum: effectiveAum(r.s, meta.aum ?? null),
         isin: meta.isin || null,
-        // Month-end AUM history (present only for the 14-fund workbook).
+        // Month-end AUM history (present for most funds in the dump).
         aumPoints: data.aumHistory?.[r.s]?.points || null,
         // Official Primary benchmark index for this scheme (Benchmark_All_Funds.xlsx).
         benchmark: (meta.isin && data.benchmarkPrimary?.[meta.isin]) || null,
         fd: r.fd,
         td: r.td,
-        active: isActive(r.td),
+        active: isActive(r),
         months: tenureMonths(r.fd, r.td),
       };
     });
@@ -601,7 +601,6 @@ export default function ManagerDossier({ records, onOpenScheme, onQuickView }) {
                   <th>Manager return</th>
                   <th>Benchmark used</th>
                   <th>Nifty 50 return</th>
-                  <th>Holiday NAV</th>
                 </tr>
               </thead>
               <tbody>
@@ -658,11 +657,6 @@ export default function ManagerDossier({ records, onOpenScheme, onQuickView }) {
                     <td>
                       <NiftyReturnValue fromISO={f.fd} toISO={f.td} />
                     </td>
-                    <td>
-                      <span className="d-live-dim" title="Holiday NAV data to be added">
-                        —
-                      </span>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -675,16 +669,14 @@ export default function ManagerDossier({ records, onOpenScheme, onQuickView }) {
           tenure and returns; nothing is spanned across the gap. Returns are computed
           from AMFI NAVs over that stint’s window (annualised for periods over a year).{" "}
           <strong>AUM in tenure</strong> is the fund’s disclosed month-end AUM at the
-          start and end of the stint (shown only where a monthly AUM history is
-          available). <strong>Net AUM inflow</strong> is the actual AUM change minus the
+          start and end of the stint (shown where a monthly AUM history is available). <strong>Net AUM inflow</strong> is the actual AUM change minus the
           growth the fund’s own NAV return would explain on its own — i.e. start AUM ×
           (1 + tenure NAV return) vs. the actual end AUM; the gap is an estimate of net
           investor inflows/outflows, not a disclosed figure. <strong>Manager return</strong>{" "}
           is that stint’s NAV return; <strong>Benchmark used</strong> is the scheme’s
           official Primary benchmark (Benchmark_All_Funds.xlsx) with a best-effort
           AMFI index-fund proxy return alongside it; <strong>Nifty 50 return</strong> is
-          the Nifty 50 (^NSEI) index return over the same window, via Yahoo Finance.{" "}
-          <strong>Holiday NAV</strong> is pending data.
+          the Nifty 50 (^NSEI) index return over the same window, via Yahoo Finance.
         </p>
       </section>
 
@@ -696,7 +688,7 @@ export default function ManagerDossier({ records, onOpenScheme, onQuickView }) {
             Tenure returns above are <strong>computed live from AMFI NAV history</strong>{" "}
             (api.mfapi.in), matched to each fund by ISIN; benchmark figures use the
             selected index fund’s NAV as a proxy over the same window, and the Active
-            funds table's Nifty return uses the actual Nifty 50 (^NSEI) index via Yahoo
+            funds table’s Nifty return uses the actual Nifty 50 (^NSEI) index via Yahoo
             Finance. Figures may differ slightly from official factsheets — cross-check
             any fund here:
           </p>

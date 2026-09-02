@@ -13,8 +13,18 @@
   # Pin Node so cloud builds match local.
   NODE_VERSION = "20"
 
+[functions]
+  # Serverless functions live here; nifty-history.js answers
+  # /api/nifty-history (see its own `config.path`), matching the Vercel
+  # function and the Vite dev middleware.
+  directory = "netlify/functions"
+
 # SPA fallback: serve index.html for any path that isn't a real file.
-# Harmless now (no client-side routes) and future-proofs adding a router.
+# Deep links like /fund/<Scheme%20Name> and /manager/<Name> are client-side
+# routes, so they must all resolve to the app shell.
+#
+# `force = false` (the default) means real files and function routes win, so
+# this does NOT swallow /api/*.
 [[redirects]]
   from = "/*"
   to = "/index.html"

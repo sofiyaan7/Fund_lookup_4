@@ -41,4 +41,19 @@ export function classifyCategory(cat) {
   return "Equity";
 }
 
-export const ASSET_CLASSES = ["Equity", "Debt", "Hybrid"];
+export const ASSET_CLASSES = ["Equity", "Debt", "Hybrid", "Other"];
+
+// The asset classes actually present in a fundMeta map, in ASSET_CLASSES order.
+//
+// The UI must not offer a filter that can never match. Every category in this
+// dump is an equity one, so a fixed Equity/Debt/Hybrid control gave two buttons
+// that always rendered "No matches." Deriving the list means a future dump with
+// debt/hybrid schemes lights those filters up on its own, and a single-class
+// dump hides the control entirely (fewer than two classes → nothing to filter).
+export function presentAssetClasses(fundMeta) {
+  if (!fundMeta) return [];
+  const present = new Set();
+  Object.values(fundMeta).forEach((m) => present.add(classifyCategory(m?.cat)));
+  const list = ASSET_CLASSES.filter((c) => present.has(c));
+  return list.length > 1 ? list : [];
+}

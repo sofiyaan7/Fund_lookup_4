@@ -3,18 +3,35 @@
 // Sources:
 //   - NAV history: api.mfapi.in (mirrors official AMFI NAV data) — CORS-open,
 //     fetched client-side directly.
-//   - Nifty 50 index history: Yahoo Finance (^NSEI) — Yahoo's endpoint has no
-//     CORS headers, so requests go through a public CORS-relay proxy.
+//   - Nifty 50 index history: Yahoo Finance (^NSEI), proxied server-side
+//     because Yahoo sends no CORS headers (see api/nifty-history.js and the
+//     matching Vite dev middleware in vite.config.js).
 //
-// Verifiability rule: a figure is only shown when the remote scheme is
-// VERIFIED BY ISIN against our own records (public/fundMeta.json carries the
-// ISIN for every scheme). No ISIN match → no number. Returns are *computed*
-// from NAV values over the manager's tenure window — never quoted from
-// unverifiable text.
+// Verifiability rule: a figure is only shown when the remote scheme is VERIFIED
+// BY ISIN against our own records (public/fundMeta.json carries the ISIN for
+// every scheme). No ISIN match → no number. Returns are *computed* from NAV
+// values over the manager's tenure window — never quoted from unverifiable text.
+//
+// How a scheme is resolved: api.mfapi.in/mf returns the FULL scheme list
+// (~37,800 rows) with isinGrowth / isinDivReinvestment on every row, in one
+// request. We fetch that once and look our ISIN up directly. The previous
+// approach — search mfapi by scheme name, then fetch up to 8 candidates and
+// check each one's ISIN — resolved only ~78% of funds because the dataset
+// abbreviates names that AMFI spells out ("Canara Rob" vs "Canara Robeco",
+// "Largecap" vs "Large Cap", "ETF" vs "Exchange Traded Fund") and mfapi's
+// search is a literal substring match. Direct ISIN lookup resolves 1070 of
+// 1095 funds (97.7%) and replaces ~126 requests per manager page with one.
 
 const MFAPI = "https://api.mfapi.in";
-const YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI";
-const CORS_RELAY = "https://corsproxy.io/?url=";
+// Yahoo's chart endpoint is reached only through our own /api/nifty-history
+// route (Vercel function, Netlify function, or Vite dev middleware) — never
+// from the browser, since Yahoo sends no CORS headers.
+//
+// There is deliberately no public-CORS-relay fallback any more. The old one
+// (corsproxy.io) answers 403 even from localhost despite documenting the
+// opposite, so it silently made every Nifty 50 figure read "n/a"; the other
+// free relays are no more dependable. A missing same-origin route is now a
+// clear, reportable configuration error instead of a silent blank column.
 
 const DAY = 86400000;
 
@@ -75,10 +92,31 @@ function lsSet(key, val) {
   }
 }
 
-const LS_CODES = "live.mfapiCodes.v1"; // isin -> mfapi scheme code
-const LS_NIFTY = "live.niftyNav.v1"; // { points:[{t,nav}], firstT, lastT, at }
+// Merge a patch into a stored map, RE-READING immediately before the write.
+//
+// Read-modify-write on localStorage is what broke the old caches: every row on
+// a manager page resolves concurrently, each captured its own snapshot of the
+// map, and the last writer clobbered all the others. Measured: the cache grew
+// by exactly one entry per page load (3 → 4 → 5 → 6 → 7), so a page kept making
+// ~126 requests on every visit no matter how often it was opened.
+function lsMerge(key, patch) {
+  const cur = lsGet(key);
+  Object.assign(cur, patch);
+  lsSet(key, cur);
+  return cur;
+}
 
-/* ── name utilities ────────────────────────────────────────────────────── */
+const LS_ISIN_INDEX = "live.isinIndex.v1"; // { at, map: { isin: code } }
+const LS_CODES = "live.mfapiCodes.v2"; // isin -> mfapi scheme code (resolved)
+const LS_MISSES = "live.mfapiMisses.v1"; // isin -> ts of last failed resolve
+const LS_NIFTY = "live.niftyNav.v1"; // { points:[{t,nav}], firstT, lastT, at }
+const LS_BENCH_PROXY = "live.benchProxyList.v3"; // benchmark name -> [code, ...]
+const LS_BENCH_BEST = "live.benchProxyBest.v1"; // benchmark name -> chosen code
+
+const INDEX_TTL = 7 * DAY; // AMFI's scheme list changes slowly
+const MISS_TTL = DAY; // don't re-probe a fund that has no AMFI match all day
+
+/* ── name utilities (fallback path only) ───────────────────────────────── */
 
 function cleanName(scheme) {
   return scheme
@@ -88,17 +126,29 @@ function cleanName(scheme) {
     .trim();
 }
 
-// Our dataset abbreviates some names that AMFI/mfapi spells out in full.
-// Without expanding them the name search returns nothing (or the wrong fund)
-// and the scheme never resolves — e.g. our "ICICI Pru …" vs AMFI's "ICICI
-// Prudential …". Scoped to ICICI so no other AMC's lookup is affected.
-function expandAmcAbbrev(name) {
-  if (!/\bICICI Pru\b/i.test(name)) return name;
-  return name
-    .replace(/\bICICI Pru\b/gi, "ICICI Prudential")
-    .replace(/\bFin Serv\b/gi, "Financial Services")
-    .replace(/\bOpp\b/gi, "Opportunities")
-    .replace(/\bValue Fund\b/gi, "Value Discovery Fund");
+// The dataset abbreviates names that AMFI spells out in full. Expanding them
+// only matters for the name-search fallback now that ISIN lookup is primary,
+// but it still rescues the handful of schemes missing from the ISIN index.
+const NAME_EXPANSIONS = [
+  [/\bICICI Pru\b/gi, "ICICI Prudential"],
+  [/\bAditya Birla SL\b/gi, "Aditya Birla Sun Life"],
+  [/\bABSL\b/gi, "Aditya Birla Sun Life"],
+  [/\bCanara Rob\b/gi, "Canara Robeco"],
+  [/\bWOC\b/gi, "WhiteOak Capital"],
+  [/\bTRUSTMF\b/gi, "TRUST Mutual Fund"],
+  [/\bFin Serv\b/gi, "Financial Services"],
+  [/\bIntl\.?\b/gi, "International"],
+  [/\bOpp\b/gi, "Opportunities"],
+  [/\bSmallcap\b/gi, "Small Cap"],
+  [/\bMidcap\b/gi, "Mid Cap"],
+  [/\bLargecap\b/gi, "Large Cap"],
+  [/\bFlexicap\b/gi, "Flexi Cap"],
+  [/\bMulticap\b/gi, "Multi Cap"],
+  [/\bMidcap(\d)/gi, "Midcap $1"],
+];
+
+function expandName(name) {
+  return NAME_EXPANSIONS.reduce((n, [re, to]) => n.replace(re, to), name).replace(/\s+/g, " ").trim();
 }
 
 function wantsDirect(scheme) {
@@ -114,6 +164,43 @@ function tokenScore(query, candidate) {
     if (c.includes(t)) hit += 1;
   });
   return hit / toks.length;
+}
+
+/* ── the ISIN index ────────────────────────────────────────────────────── */
+
+let indexPromise = null;
+
+// isin -> mfapi scheme code, for every scheme AMFI publishes a NAV for.
+export function loadIsinIndex() {
+  if (indexPromise) return indexPromise;
+
+  const cached = lsGet(LS_ISIN_INDEX);
+  if (cached.map && cached.at && Date.now() - cached.at < INDEX_TTL) {
+    indexPromise = Promise.resolve(cached.map);
+    return indexPromise;
+  }
+
+  indexPromise = getJSON(`${MFAPI}/mf`)
+    .then((rows) => {
+      const map = {};
+      (rows || []).forEach((r) => {
+        // Growth ISINs win: that's the option our records carry for most
+        // schemes, and it's the series the returns should be computed off.
+        if (r.isinGrowth && !map[r.isinGrowth]) map[r.isinGrowth] = r.schemeCode;
+        if (r.isinDivReinvestment && !map[r.isinDivReinvestment])
+          map[r.isinDivReinvestment] = r.schemeCode;
+      });
+      if (!Object.keys(map).length) throw new Error("empty AMFI scheme index");
+      lsSet(LS_ISIN_INDEX, { at: Date.now(), map });
+      return map;
+    })
+    .catch((e) => {
+      indexPromise = null; // allow retry
+      // A stale cached index is far better than none.
+      if (cached.map) return cached.map;
+      throw e;
+    });
+  return indexPromise;
 }
 
 /* ── NAV history (mfapi.in) ────────────────────────────────────────────── */
@@ -140,26 +227,15 @@ async function fetchNav(code) {
   };
 }
 
-// Resolve a scheme (by name + our ISIN) to an ISIN-verified NAV history.
-export async function resolveNav(scheme, isin) {
-  if (!isin) throw new Error("no ISIN in records");
-  const codes = lsGet(LS_CODES);
-  if (codes[isin]) return fetchNav(codes[isin]);
-
-  const q = expandAmcAbbrev(cleanName(scheme));
+// Fallback for the few ISINs absent from the index: search by name, then
+// verify the ISIN exactly as before. Never accepts an unverified match.
+async function resolveByName(scheme, isin) {
+  const q = expandName(cleanName(scheme));
   const results = (await getJSON(`${MFAPI}/mf/search?q=${encodeURIComponent(q)}`)) || [];
   const direct = wantsDirect(scheme);
-  // Prefer the right plan (regular vs direct), then the growth option — index
-  // funds and ETFs label their growth option "Growth", "Cumulative" or leave it
-  // implicit, so fall back progressively instead of dropping the scheme. Rank
-  // whatever pool we use by name overlap; the ISIN check below guarantees we
-  // only ever accept the correct fund.
   const planMatched = results.filter((x) => direct === /direct/i.test(x.schemeName));
   const growthish = planMatched.filter((x) => /growth|cumulative/i.test(x.schemeName));
   const pool = growthish.length ? growthish : planMatched.length ? planMatched : results;
-  // Rank by query-token overlap, then prefer the closest-length name so an exact
-  // match (e.g. "Nifty 100 ETF") beats a superset ("Nifty 100 Low Volatility 30
-  // ETF") that also contains every query token.
   const candidates = [...pool]
     .sort(
       (a, b) =>
@@ -171,16 +247,72 @@ export async function resolveNav(scheme, isin) {
   for (const c of candidates) {
     try {
       const nav = await fetchNav(c.schemeCode);
-      if (nav.isinG === isin || nav.isinD === isin) {
-        codes[isin] = c.schemeCode;
-        lsSet(LS_CODES, codes);
-        return nav;
-      }
+      if (nav.isinG === isin || nav.isinD === isin) return nav;
     } catch {
       /* try the next candidate */
     }
   }
-  throw new Error("no ISIN-verified AMFI match");
+  return null;
+}
+
+// In-flight de-duplication. A single manager page mounts several cells for the
+// same fund (tenure return, net-flow estimate, …); without this each one starts
+// its own resolve.
+const navMemo = new Map(); // `${scheme}|${isin}` -> Promise
+
+// Resolve a scheme (by our ISIN) to an ISIN-verified NAV history.
+export function resolveNav(scheme, isin) {
+  if (!isin) return Promise.reject(new Error("no ISIN in records"));
+  const key = `${scheme}|${isin}`;
+  if (navMemo.has(key)) return navMemo.get(key);
+
+  const p = (async () => {
+    // A recent failure is remembered so a fund with no AMFI match doesn't
+    // re-run the whole search on every page view.
+    const misses = lsGet(LS_MISSES);
+    if (misses[isin] && Date.now() - misses[isin] < MISS_TTL) {
+      throw new Error("no ISIN-verified AMFI match");
+    }
+
+    const codes = lsGet(LS_CODES);
+    if (codes[isin]) {
+      try {
+        const nav = await fetchNav(codes[isin]);
+        if (nav.isinG === isin || nav.isinD === isin) return nav;
+      } catch {
+        /* stale code — fall through and re-resolve */
+      }
+    }
+
+    // Primary path: one shared ISIN index, no per-fund searching.
+    try {
+      const index = await loadIsinIndex();
+      const code = index[isin];
+      if (code) {
+        const nav = await fetchNav(code);
+        if (nav.isinG === isin || nav.isinD === isin) {
+          lsMerge(LS_CODES, { [isin]: code });
+          return nav;
+        }
+      }
+    } catch {
+      /* index unavailable — try the name search below */
+    }
+
+    // Fallback: name search + ISIN verification.
+    const byName = await resolveByName(scheme, isin);
+    if (byName) {
+      lsMerge(LS_CODES, { [isin]: byName.code });
+      return byName;
+    }
+
+    lsMerge(LS_MISSES, { [isin]: Date.now() });
+    throw new Error("no ISIN-verified AMFI match");
+  })();
+
+  navMemo.set(key, p);
+  p.catch(() => navMemo.delete(key)); // let a later mount retry
+  return p;
 }
 
 // Latest NAV point on/before `t` (ms). Returns null if none within the window.
@@ -223,36 +355,12 @@ export function windowReturn(nav, fromISO, toISO) {
   return { abs, cagr, days, fromT: start.t, toT: end.t, clamped };
 }
 
-/* ── benchmarks (index-fund NAVs as TRI proxies) ───────────────────────── */
-
-// Codes verified against mfapi. Index *funds* are used as investable proxies
-// for the index (their NAV is net of a small tracking cost).
-export const BENCHMARKS = [
-  { key: "n50", label: "Nifty 50", proxy: "UTI Nifty 50 Index Fund (Reg-G)", code: 100822 },
-  { key: "n500", label: "Nifty 500", proxy: "Motilal Oswal Nifty 500 Index Fund (Reg)", code: 147626 },
-  { key: "sensex", label: "BSE Sensex", proxy: "HDFC BSE Sensex Index Fund (G)", code: 101281 },
-  { key: "mid150", label: "Nifty Midcap 150", proxy: "Motilal Oswal Nifty Midcap 150 Index Fund (Reg)", code: 147621 },
-];
-
-// Benchmark return over an exact ms window (match the fund's actual NAV window).
-export async function benchmarkReturn(code, fromT, toT) {
-  const nav = await fetchNav(code);
-  const start = navOn(nav, fromT);
-  const end = navOn(nav, toT) || (toT >= nav.lastT ? nav.points[nav.points.length - 1] : null);
-  if (!start || !end || end.t <= start.t) return null;
-  const days = (end.t - start.t) / DAY;
-  const abs = end.nav / start.nav - 1;
-  const cagr = days >= 365 ? Math.pow(end.nav / start.nav, 365.25 / days) - 1 : null;
-  return { abs, cagr, days, fromT: start.t, toT: end.t };
-}
-
 /* ── official primary benchmark (Benchmark_All_Funds.xlsx) ────────────── */
 //
 // public/benchmarkPrimary.json maps a scheme's ISIN to its SD_Benchmark Index
-// (Primary row only), sourced from data_dump/Benchmark_All_Funds.xlsx. Raw
-// index levels aren't independently fetchable, so the return shown is that of
-// an AMFI index fund tracking the same index — best name match, cached by
-// benchmark name so the search only runs once per index.
+// (Primary row only). Raw index levels aren't independently fetchable, so the
+// return shown is that of an AMFI index fund tracking the same index — best
+// name match, cached by benchmark name so the search runs once per index.
 
 const BENCH_STOPWORDS = new Set([
   "fund", "index", "plan", "direct", "dir", "regular", "reg", "growth", "g",
@@ -271,9 +379,7 @@ function benchSigTokens(name) {
 // must appear in the name (hard requirement); among matches, fewer leftover
 // words wins (closest name), then a preference for non-IDCW + regular-plan
 // naming as a tiebreaker only. "Growth" is NOT a hard filter — some
-// single-option schemes have no "Growth" in their name at all (e.g. "Motilal
-// Oswal Nifty 500 Index Fund - Regular Plan") and would be wrongly dropped.
-// Returns every qualifying scheme code, best match first.
+// single-option schemes have no "Growth" in their name at all.
 function rankBenchCandidates(qToks, pool) {
   return pool
     .map((x) => {
@@ -301,52 +407,97 @@ async function searchMfapi(q) {
   }
 }
 
-const LS_BENCH_PROXY = "live.benchProxyList.v2"; // benchmark name -> [mfapi scheme code, ...]
+const benchMemo = new Map(); // benchmark name -> Promise<code[]>
 
-async function findBenchmarkProxyCandidates(benchmarkName) {
-  const cache = lsGet(LS_BENCH_PROXY);
-  if (benchmarkName in cache) return cache[benchmarkName];
+function findBenchmarkProxyCandidates(benchmarkName) {
+  if (benchMemo.has(benchmarkName)) return benchMemo.get(benchmarkName);
 
-  const cleaned = benchmarkName.replace(/-\s*TRI\s*$/i, "").trim();
-  const qToks = benchSigTokens(cleaned);
-  let codes = [];
+  const p = (async () => {
+    const cache = lsGet(LS_BENCH_PROXY);
+    if (benchmarkName in cache) return cache[benchmarkName];
 
-  if (qToks.length) {
-    const results = await searchMfapi(`${cleaned} Index Fund`);
-    codes = rankBenchCandidates(qToks, results);
+    const cleaned = benchmarkName.replace(/-\s*TRI\s*$/i, "").trim();
+    const qToks = benchSigTokens(cleaned);
+    let codes = [];
 
-    // Some sector/thematic indices are only tracked by an ETF.
-    if (!codes.length) {
-      const etfResults = await searchMfapi(`${cleaned} ETF`);
-      codes = rankBenchCandidates(qToks, etfResults);
+    if (qToks.length) {
+      const results = await searchMfapi(`${cleaned} Index Fund`);
+      codes = rankBenchCandidates(qToks, results);
+
+      // Some sector/thematic indices are only tracked by an ETF.
+      if (!codes.length) {
+        const etfResults = await searchMfapi(`${cleaned} ETF`);
+        codes = rankBenchCandidates(qToks, etfResults);
+      }
     }
-  }
 
-  cache[benchmarkName] = codes;
-  lsSet(LS_BENCH_PROXY, cache);
-  return codes;
+    lsMerge(LS_BENCH_PROXY, { [benchmarkName]: codes });
+    return codes;
+  })();
+
+  benchMemo.set(benchmarkName, p);
+  p.catch(() => benchMemo.delete(benchmarkName));
+  return p;
+}
+
+// The proxy actually chosen for a benchmark, resolved once and reused.
+//
+// The closest NAME match for a benchmark is often a fund that only launched in
+// 2023-24 and so covers nothing for an older manager tenure. That is why
+// candidates are walked at all — but walking them *per row* meant re-fetching
+// every candidate's NAV history on every page view (95 NAV requests on one
+// manager page, on every visit). Instead: evaluate the shortlist once, keep the
+// proxy with the longest history, and reuse it for every window.
+const PROXY_SHORTLIST = 4;
+const proxyMemo = new Map(); // benchmark name -> Promise<nav | null>
+
+function bestBenchmarkProxy(benchmarkName) {
+  if (proxyMemo.has(benchmarkName)) return proxyMemo.get(benchmarkName);
+
+  const p = (async () => {
+    // Which candidate won is remembered across sessions, so the shortlist is
+    // only ever walked once per benchmark per browser rather than on every
+    // page load.
+    const chosen = lsGet(LS_BENCH_BEST)[benchmarkName];
+    if (chosen) {
+      try {
+        return await fetchNav(chosen);
+      } catch {
+        /* stale code — re-evaluate below */
+      }
+    }
+
+    const codes = await findBenchmarkProxyCandidates(benchmarkName);
+    if (!codes.length) return null;
+
+    let best = null;
+    for (const code of codes.slice(0, PROXY_SHORTLIST)) {
+      try {
+        const nav = await fetchNav(code);
+        // Longest history wins: it covers the widest set of tenure windows,
+        // and every candidate here already tracks the same index.
+        if (!best || nav.firstT < best.firstT) best = nav;
+      } catch {
+        /* try the next candidate */
+      }
+    }
+    if (best) lsMerge(LS_BENCH_BEST, { [benchmarkName]: best.code });
+    return best;
+  })();
+
+  proxyMemo.set(benchmarkName, p);
+  p.catch(() => proxyMemo.delete(benchmarkName));
+  return p;
 }
 
 // Primary-benchmark return over a fund's tenure window (toISO=null → latest).
-// Walks the ranked proxy candidates and returns the first whose NAV history
-// actually overlaps the window — the closest NAME match for a benchmark is
-// often a fund that only launched in 2023-24, which covers nothing for an
-// older manager tenure; a looser-matched but longer-running proxy is tried
-// next rather than giving up after one attempt.
 export async function primaryBenchmarkReturn(benchmarkName, fromISO, toISO) {
   if (!benchmarkName) throw new Error("no primary benchmark on record for this fund");
-  const codes = await findBenchmarkProxyCandidates(benchmarkName);
-  if (!codes.length) throw new Error("no AMFI index-fund proxy found for this benchmark");
-  for (const code of codes) {
-    try {
-      const nav = await fetchNav(code);
-      const r = windowReturn(nav, fromISO, toISO);
-      if (r) return r;
-    } catch {
-      /* try the next candidate */
-    }
-  }
-  throw new Error("no candidate proxy has NAV history covering this window");
+  const nav = await bestBenchmarkProxy(benchmarkName);
+  if (!nav) throw new Error("no AMFI index-fund proxy found for this benchmark");
+  const r = windowReturn(nav, fromISO, toISO);
+  if (!r) throw new Error("no candidate proxy has NAV history covering this window");
+  return r;
 }
 
 /* ── Nifty 50 index history (Yahoo Finance) ────────────────────────────── */
@@ -356,25 +507,30 @@ export async function primaryBenchmarkReturn(benchmarkName, fromISO, toISO) {
 // ({ points, firstT, lastT }) so it can be run through the same windowReturn
 // used for fund tenure returns.
 //
-// Fetch path: try our own same-origin serverless function (api/nifty-history.js)
-// first — no CORS involved, works once deployed on Vercel. If that route
-// doesn't exist (e.g. plain `vite dev` with no serverless runtime), fall back
-// to a public CORS relay, which conveniently only permits free usage from
-// localhost anyway.
+// Fetch path: our own same-origin /api/nifty-history — a Vercel function in
+// production, a Vite middleware in dev (vite.config.js), a Netlify function on
+// Netlify. Public CORS relays are only a last resort; they are not dependable
+// (corsproxy.io returns 403 even from localhost despite documenting the
+// opposite, which is why every Nifty figure read "n/a" locally).
 async function fetchYahooNiftyChart() {
+  let detail = "";
   try {
     const r = await fetch("/api/nifty-history");
     if (r.ok) {
-      const data = await r.json(); // awaited inside try: a non-JSON response (e.g.
-      if (data?.chart) return data; // Vite's dev server 404 page) falls through below
+      const data = await r.json();
+      if (data?.chart) return data;
+      detail = data?.error ? ` (${data.error})` : " (unexpected response shape)";
+    } else {
+      detail = ` (HTTP ${r.status})`;
     }
-  } catch {
-    /* not deployed on Vercel (or the function errored) — fall through to the relay */
+  } catch (e) {
+    detail = ` (${e?.message || e})`;
   }
-  const period2 = Math.floor(Date.now() / 1000);
-  const period1 = Math.floor(Date.UTC(2000, 0, 1) / 1000);
-  const url = `${YAHOO_CHART}?period1=${period1}&period2=${period2}&interval=1d`;
-  return getJSON(`${CORS_RELAY}${encodeURIComponent(url)}`);
+  throw new Error(
+    `/api/nifty-history is not serving Yahoo Finance data${detail}. ` +
+      "It is provided by api/nifty-history.js on Vercel, " +
+      "netlify/functions/nifty-history.js on Netlify, and the Vite dev middleware locally."
+  );
 }
 
 let niftyPromise = null;
@@ -406,6 +562,9 @@ function fetchNiftyNav() {
       return entry;
     })().catch((e) => {
       niftyPromise = null;
+      // Serve a stale cached series rather than showing nothing at all.
+      const cached = lsGet(LS_NIFTY);
+      if (cached.points?.length) return cached;
       throw e;
     });
   }

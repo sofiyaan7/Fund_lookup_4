@@ -507,3 +507,17 @@
     align-items: flex-start;
   }
 }
+
+/* A chip flagging a contradiction in the source data (e.g. a manager tenure
+   that starts before the fund's recorded inception). */
+.mp-chip--warn { border-color: var(--warn, #d29922); }
+.mp-chip-flag {
+  margin-left: 5px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--warn, #d29922);
+  color: #1c1600;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: help;
+}
